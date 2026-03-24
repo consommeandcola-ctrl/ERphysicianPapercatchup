@@ -1,0 +1,1670 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<!-- 2026-03-24 | v2.0 | DOI既読自動化・更新ボタン・レスポンシブ調整 -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#8b9cf0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="EM CatchUp">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./apple-icon.png">
+<title>EM CatchUp v2.0</title>
+<style>
+:root {
+  --bg: #f5f3ff;
+  --surface: #ffffff;
+  --surface2: #ede9fe;
+  --border: #ddd6fe;
+  --accent: #8b9cf0;
+  --accent-deep: #6b7fd7;
+  --accent2: #7dcea8;
+  --accent2-deep: #5bb892;
+  --warn: #e8a090;
+  --warn-strong: #a85d52;
+  --warn-soft: #fde8e4;
+  --text: #4c4768;
+  --text-dim: #8b85a3;
+  --text-bright: #2f2a45;
+  --mono: 'Courier New', 'Menlo', 'Monaco', monospace;
+  --sans: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Yu Gothic UI', 'Meiryo', sans-serif;
+  --safe-top: env(safe-area-inset-top);
+  --safe-bottom: env(safe-area-inset-bottom);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* 淡いグリッド背景 */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(139, 156, 240, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(139, 156, 240, 0.12) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app {
+  position: relative;
+  z-index: 1;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: calc(20px + var(--safe-top)) 16px calc(60px + var(--safe-bottom));
+}
+
+/* ヘッダー */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 24px 0 20px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 28px;
+}
+
+.header-icon {
+  width: 44px;
+  height: 44px;
+  background: linear-gradient(135deg, #b8c5fa, #a8e8c8);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+  box-shadow: 0 6px 20px rgba(139, 156, 240, 0.35);
+}
+
+.header-title {
+  font-family: var(--mono);
+  font-size: 22px;
+  color: var(--accent);
+  letter-spacing: 2px;
+  line-height: 1;
+}
+
+.header-sub {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 4px;
+  font-family: var(--mono);
+  letter-spacing: 1px;
+}
+
+.badge {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--accent2);
+  border: 1px solid var(--accent2);
+  padding: 3px 8px;
+  border-radius: 3px;
+  letter-spacing: 1px;
+}
+
+.btn-update {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--accent-deep);
+  font-family: var(--mono);
+  font-size: 11px;
+  border-radius: 6px;
+  padding: 7px 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-height: 36px;
+}
+
+.btn-update:hover {
+  background: var(--surface2);
+  border-color: var(--accent);
+}
+
+/* ドメイン選択 */
+.domain-section {
+  margin-bottom: 20px;
+}
+
+.section-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.domain-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.domain-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.domain-btn:hover {
+  border-color: var(--accent);
+  background: var(--surface2);
+}
+
+.domain-btn.active {
+  border-color: var(--accent-deep);
+  background: rgba(139, 156, 240, 0.18);
+  box-shadow: 0 4px 14px rgba(139, 156, 240, 0.25);
+}
+
+.domain-icon {
+  font-size: 22px;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.domain-name {
+  font-size: 13px;
+  color: var(--text-bright);
+  display: block;
+  font-weight: 500;
+}
+
+.domain-en {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  display: block;
+  margin-top: 2px;
+}
+
+/* 検索オプション */
+.search-options {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.option-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 140px;
+}
+
+.option-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+}
+
+.option-select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: var(--text);
+  font-size: 13px;
+  font-family: var(--sans);
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.option-select:focus { border-color: var(--accent); }
+
+.search-btn {
+  background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+  border: none;
+  color: #fff;
+  padding: 10px 28px;
+  border-radius: 8px;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.08);
+}
+
+.search-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(107, 127, 215, 0.4);
+}
+
+.search-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.read-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  width: 100%;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+
+.read-actions button {
+  background: none;
+  border: none;
+  color: var(--accent-deep);
+  font-family: var(--mono);
+  font-size: 10px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.read-actions button:hover {
+  color: var(--warn-strong);
+}
+
+/* ステータスバー */
+.status-bar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 20px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  display: none;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-bar.visible { display: flex; }
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 1s infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.status-bar.done .status-dot {
+  background: var(--accent2);
+  animation: none;
+}
+
+.status-bar.error .status-dot {
+  background: var(--warn);
+  animation: none;
+}
+
+/* 結果エリア */
+.results-section { display: none; }
+.results-section.visible { display: block; }
+
+.results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.results-count {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.results-count span {
+  color: var(--accent);
+  font-size: 18px;
+}
+
+.results-rank-hint {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
+/* 0件時の検索診断 */
+.search-empty-panel {
+  background: #fff8f5;
+  border: 1px solid rgba(232, 160, 144, 0.65);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text);
+}
+
+.search-empty-panel h4 {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--warn-strong);
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+
+.search-empty-panel .diag-insight {
+  background: #fff;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 10px 0;
+  border: 1px solid var(--border);
+}
+
+.search-empty-panel .diag-insight ul {
+  margin: 6px 0 0 18px;
+}
+
+.search-empty-panel .diag-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin: 10px 0;
+}
+
+.search-empty-panel .diag-table th,
+.search-empty-panel .diag-table td {
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.search-empty-panel .diag-table th {
+  background: var(--surface2);
+  font-weight: 600;
+  width: 38%;
+}
+
+.search-empty-panel .diag-count {
+  font-family: var(--mono);
+  font-weight: 700;
+  color: var(--accent-deep);
+  white-space: nowrap;
+}
+
+.search-query-pre {
+  display: block;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-top: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.search-empty-panel .pubmed-link {
+  display: inline-block;
+  margin-top: 10px;
+  color: var(--accent-deep);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+/* アーティクルカード */
+.article-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.article-card:hover { border-color: var(--accent); }
+
+.article-header {
+  padding: 14px 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.article-card.article-read {
+  opacity: 0.88;
+  border-color: rgba(139, 156, 240, 0.35);
+}
+
+.article-card.article-read .article-title {
+  color: var(--text-dim);
+}
+
+.read-toggle {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 2px;
+  user-select: none;
+}
+
+.read-toggle input {
+  margin: 2px 0 0 0;
+  accent-color: var(--accent-deep);
+  cursor: pointer;
+}
+
+.article-pmid {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--accent-deep);
+  background: rgba(139, 156, 240, 0.2);
+  border: 1px solid rgba(139, 156, 240, 0.45);
+  padding: 3px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.article-info { flex: 1; min-width: 0; }
+
+.article-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-bright);
+  line-height: 1.5;
+  margin-bottom: 5px;
+}
+
+.article-meta {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.article-journal { color: var(--accent2-deep); }
+
+.article-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  align-items: center;
+}
+
+.article-badge {
+  font-family: var(--mono);
+  font-size: 9px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.3px;
+  line-height: 1.2;
+}
+
+.badge-ev-high {
+  background: rgba(91, 184, 146, 0.22);
+  color: var(--accent2-deep);
+  border: 1px solid rgba(91, 184, 146, 0.45);
+}
+
+.badge-ev-mid {
+  background: rgba(139, 156, 240, 0.2);
+  color: var(--accent-deep);
+  border: 1px solid rgba(107, 127, 215, 0.35);
+}
+
+.badge-ev-low {
+  background: var(--surface2);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+
+.badge-cites {
+  background: #fff8e8;
+  color: #7a6530;
+  border: 1px solid #e5d4a8;
+}
+
+.badge-cites-unknown {
+  background: var(--surface2);
+  color: var(--text-dim);
+  border: 1px dashed var(--border);
+}
+
+.badge-pt {
+  background: #f0f4ff;
+  color: var(--text);
+  border: 1px solid var(--border);
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.article-toggle {
+  font-size: 18px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  transition: transform 0.2s;
+  margin-top: 2px;
+}
+
+.article-card.expanded .article-toggle {
+  transform: rotate(180deg);
+}
+
+.article-body {
+  display: none;
+  padding: 0 16px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.article-card.expanded .article-body { display: block; }
+
+.abstract-box {
+  background: #faf8ff;
+  border-radius: 6px;
+  padding: 12px;
+  margin-top: 12px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text);
+  border-left: 3px solid rgba(139, 156, 240, 0.55);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.abstract-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+  margin-top: 12px;
+}
+
+.doi-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent-deep);
+  font-family: var(--mono);
+  font-size: 11px;
+  text-decoration: none;
+  border: 1px solid rgba(139, 156, 240, 0.5);
+  padding: 4px 10px;
+  border-radius: 4px;
+  margin-top: 10px;
+  transition: all 0.2s;
+}
+
+.doi-link:hover {
+  background: rgba(139, 156, 240, 0.15);
+}
+
+/* 免責事項 */
+.disclaimer {
+  background: var(--warn-soft);
+  border: 1px solid rgba(232, 160, 144, 0.55);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-top: 24px;
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+.disclaimer strong { color: var(--warn-strong); }
+
+/* file://警告バナー */
+.file-warning {
+  display: none;
+  background: #fff5f2;
+  border: 1px solid rgba(232, 160, 144, 0.75);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text);
+}
+
+.file-warning strong { color: var(--warn-strong); font-family: var(--mono); }
+.file-warning code {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--accent-deep);
+  display: inline-block;
+  margin: 2px 0;
+}
+
+/* スクロールバー */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--surface2); }
+::-webkit-scrollbar-thumb { background: #c4b8e8; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #b0a0dc; }
+
+@media (max-width: 640px) {
+  .domain-grid { grid-template-columns: repeat(3, 1fr); }
+  .search-options { flex-direction: column; }
+  .search-btn { width: 100%; }
+  .header-title { font-size: 18px; }
+  .header {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .badge { margin-left: 0; }
+  .btn-update {
+    margin-left: auto;
+    min-height: 44px;
+    padding: 9px 12px;
+  }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ヘッダー -->
+  <div class="header">
+    <div class="header-icon">🫀</div>
+    <div>
+      <div class="header-title">EM CatchUp</div>
+      <div class="header-sub">EVIDENCE-BASED // ORIGINAL SOURCE ONLY // ZERO HALLUCINATION</div>
+    </div>
+    <div class="badge">v2.0</div>
+    <button class="btn-update" type="button" onclick="updateApp()">🔄 更新</button>
+  </div>
+
+  <!-- file://警告 -->
+  <div class="file-warning" id="fileWarning">
+    <strong>⚠ ローカルファイルとして開いています</strong><br>
+    PubMed（文献検索・Abstract取得）は通常 <code>http://localhost</code> 経由で開けば API キー不要で動きます。ブラウザの制限で <code>fetch</code> が失敗する場合は下記のローカルサーバーを使ってください。<br><br>
+    <strong>解決策①（推奨）：Pythonローカルサーバーで起動</strong><br>
+    このHTMLファイルがあるフォルダで以下を実行：<br>
+    <code>python -m http.server 8080</code><br>
+    その後ブラウザで <code>http://localhost:8080/EM_CatchUp.html</code> を開く<br><br>
+    <strong>解決策②：VSCode / Cursor の Live Server拡張を使う</strong><br>
+    ファイルを右クリック → "Open with Live Server"<br><br>
+    <strong>解決策③：Chromeフラグ（簡易）</strong><br>
+    <code>chrome.exe --allow-file-access-from-files</code> で起動
+  </div>
+
+  <!-- ドメイン選択 -->
+  <div class="domain-section">
+    <div class="section-label">CLINICAL DOMAIN</div>
+    <!-- カテゴリラベル -->
+    <div style="font-family:var(--mono);font-size:10px;color:var(--warn-strong);letter-spacing:2px;margin-bottom:6px;">EMERGENCY</div>
+    <div class="domain-grid" style="margin-bottom:16px;">
+      <div class="domain-btn active" data-domain="cardiovascular" data-query="(&quot;acute coronary syndrome&quot; OR ACS OR &quot;myocardial infarction&quot; OR MI OR STEMI OR NSTEMI OR &quot;heart failure&quot; OR &quot;cardiogenic shock&quot; OR angina OR &quot;acute coronary&quot;)" onclick="selectDomain(this)">
+        <span class="domain-icon">❤️</span>
+        <span class="domain-name">循環器</span>
+        <span class="domain-en">Cardiovascular</span>
+      </div>
+      <div class="domain-btn" data-domain="neurology" data-query="(stroke OR &quot;ischemic stroke&quot; OR thrombectomy OR tPA OR alteplase OR tenecteplase OR &quot;intracerebral hemorrhage&quot; OR ICH OR &quot;subarachnoid hemorrhage&quot; OR SAH)" onclick="selectDomain(this)">
+        <span class="domain-icon">🧠</span>
+        <span class="domain-name">神経</span>
+        <span class="domain-en">Neurology</span>
+      </div>
+      <div class="domain-btn" data-domain="respiratory" data-query="(ARDS OR &quot;acute respiratory distress&quot; OR &quot;mechanical ventilation&quot; OR &quot;respiratory failure&quot; OR &quot;noninvasive ventilation&quot; OR CPAP OR BiPAP OR &quot;acute hypoxemic respiratory&quot; OR intubation)" onclick="selectDomain(this)">
+        <span class="domain-icon">🫁</span>
+        <span class="domain-name">呼吸器</span>
+        <span class="domain-en">Respiratory</span>
+      </div>
+      <div class="domain-btn" data-domain="sepsis" data-query="(sepsis OR &quot;septic shock&quot; OR bacteremia OR antibiotic* OR &quot;surviving sepsis&quot; OR &quot;organ dysfunction&quot; OR &quot;fluid resuscitation&quot; OR vasopressor*)" onclick="selectDomain(this)">
+        <span class="domain-icon">🦠</span>
+        <span class="domain-name">敗血症</span>
+        <span class="domain-en">Sepsis</span>
+      </div>
+      <div class="domain-btn" data-domain="trauma" data-query="(polytrauma OR trauma OR injury) AND (hemorrhage OR hemorrhagic shock OR resuscitation OR &quot;damage control&quot; OR &quot;massive transfusion&quot; OR hemostasis OR coagulopathy OR tranexamic acid)" onclick="selectDomain(this)">
+        <span class="domain-icon">🩹</span>
+        <span class="domain-name">外傷</span>
+        <span class="domain-en">Trauma</span>
+      </div>
+      <div class="domain-btn" data-domain="aorta" data-query="(&quot;aortic dissection&quot; OR &quot;aortic aneurysm&quot; OR &quot;aortic rupture&quot; OR TEVAR OR EVAR OR &quot;acute aortic&quot; OR &quot;thoracic aortic&quot; OR &quot;abdominal aortic aneurysm&quot;)" onclick="selectDomain(this)">
+        <span class="domain-icon">🩸</span>
+        <span class="domain-name">大動脈</span>
+        <span class="domain-en">Aorta</span>
+      </div>
+    </div>
+
+    <!-- 総合内科 -->
+    <div style="font-family:var(--mono);font-size:10px;color:var(--accent2-deep);letter-spacing:2px;margin-bottom:6px;">GENERAL INTERNAL MEDICINE</div>
+    <div class="domain-grid">
+      <div class="domain-btn" data-domain="gastroenterology" data-query="(&quot;gastrointestinal bleeding&quot; OR &quot;GI bleeding&quot; OR variceal OR &quot;inflammatory bowel disease&quot; OR IBD OR &quot;peptic ulcer&quot; OR &quot;Crohn disease&quot; OR colitis OR &quot;upper gastrointestinal&quot;)" onclick="selectDomain(this)">
+        <span class="domain-icon">🫃</span>
+        <span class="domain-name">消化管</span>
+        <span class="domain-en">Gastroenterology</span>
+      </div>
+      <div class="domain-btn" data-domain="hepatology" data-query="(cirrhosis OR hepatitis OR &quot;acute liver failure&quot; OR pancreatitis OR cholangitis OR &quot;hepatic encephalopathy&quot; OR ascites OR &quot;acute pancreatitis&quot; OR &quot;alcoholic hepatitis&quot;)" onclick="selectDomain(this)">
+        <span class="domain-icon">🫀</span>
+        <span class="domain-name">肝胆膵</span>
+        <span class="domain-en">Hepato-Pancreato</span>
+      </div>
+      <div class="domain-btn" data-domain="infectious" data-query="(pneumonia OR &quot;urinary tract infection&quot; OR UTI OR bacteremia OR endocarditis OR meningitis OR &quot;antimicrobial resistance&quot; OR &quot;infectious disease&quot; OR cellulitis OR sepsis)" onclick="selectDomain(this)">
+        <span class="domain-icon">🧫</span>
+        <span class="domain-name">感染症</span>
+        <span class="domain-en">Infectious Disease</span>
+      </div>
+      <div class="domain-btn" data-domain="endocrinology" data-query="(&quot;diabetes mellitus&quot; OR hyperglycemia OR DKA OR HHS OR thyroid OR adrenal OR insulin OR glucocorticoid OR endocrinopath* OR hypoglycemia)" onclick="selectDomain(this)">
+        <span class="domain-icon">🧬</span>
+        <span class="domain-name">内分泌</span>
+        <span class="domain-en">Endocrinology</span>
+      </div>
+      <div class="domain-btn" data-domain="rheumatology" data-query="(&quot;rheumatoid arthritis&quot; OR lupus OR SLE OR vasculitis OR &quot;connective tissue disease&quot; OR &quot;systemic sclerosis&quot; OR polymyalgia OR gout OR &quot;Behçet&quot; OR ANCA)" onclick="selectDomain(this)">
+        <span class="domain-icon">🦴</span>
+        <span class="domain-name">膠原病</span>
+        <span class="domain-en">Rheumatology</span>
+      </div>
+      <div class="domain-btn" data-domain="hematology" data-query="(anemia OR leukemia OR lymphoma OR coagulopath* OR thrombocytopenia OR DIC OR &quot;disseminated intravascular&quot; OR sickle OR transfusion OR hemophilia OR anticoagulant*)" onclick="selectDomain(this)">
+        <span class="domain-icon">💉</span>
+        <span class="domain-name">血液</span>
+        <span class="domain-en">Hematology</span>
+      </div>
+      <div class="domain-btn" data-domain="nephrology" data-query="(&quot;acute kidney injury&quot; OR AKI OR &quot;chronic kidney disease&quot; OR CKD OR dialysis OR hyponatremia OR hyperkalemia OR &quot;renal failure&quot; OR glomerulonephritis OR proteinuria)" onclick="selectDomain(this)">
+        <span class="domain-icon">🫘</span>
+        <span class="domain-name">腎臓</span>
+        <span class="domain-en">Nephrology</span>
+      </div>
+      <div class="domain-btn" data-domain="metabolism" data-query="(hypertension OR &quot;blood pressure&quot; OR dyslipidemia OR hyperlipidemia OR statin OR &quot;metabolic syndrome&quot; OR obesity OR prediabetes OR &quot;weight loss&quot; OR antihypertensive*)" onclick="selectDomain(this)">
+        <span class="domain-icon">⚗️</span>
+        <span class="domain-name">代謝・高血圧</span>
+        <span class="domain-en">Metabolism</span>
+      </div>
+      <div class="domain-btn" data-domain="allergy" data-query="(anaphylaxis OR asthma OR allergy OR &quot;drug hypersensitivity&quot; OR angioedema OR epinephrine OR &quot;anaphylactic shock&quot; OR urticaria OR desensitization)" onclick="selectDomain(this)">
+        <span class="domain-icon">🌿</span>
+        <span class="domain-name">アレルギー</span>
+        <span class="domain-en">Allergy</span>
+      </div>
+    </div>
+
+    <!-- 麻酔・周術期 -->
+    <div style="font-family:var(--mono);font-size:10px;color:var(--accent2);letter-spacing:2px;margin-bottom:6px;margin-top:8px;">ANESTHESIA</div>
+    <div class="domain-grid">
+      <div class="domain-btn" data-domain="anesthesia" data-query="(&quot;general anesthesia&quot; OR &quot;regional anesthesia&quot; OR anesthesia OR anesthetic OR neuraxial OR epidural OR spinal OR &quot;nerve block&quot; OR &quot;peripheral nerve block&quot; OR &quot;ultrasound guided&quot; OR intubation OR &quot;airway management&quot; OR &quot;rapid sequence&quot; OR RSI OR sedation OR propofol OR sevoflurane OR rocuronium OR sugammadex OR perioperative OR intraoperative OR PONV OR &quot;postoperative nausea&quot; OR &quot;postoperative pain&quot; OR &quot;multimodal analgesia&quot; OR &quot;malignant hyperthermia&quot; OR &quot;local anesthetic&quot; OR awareness)" onclick="selectDomain(this)">
+        <span class="domain-icon">💊</span>
+        <span class="domain-name">麻酔</span>
+        <span class="domain-en">Anesthesia</span>
+      </div>
+    </div>
+
+    <!-- リハビリ・運動療法 -->
+    <div style="font-family:var(--mono);font-size:10px;color:var(--accent-deep);letter-spacing:2px;margin-bottom:6px;margin-top:8px;">REHABILITATION</div>
+    <div class="domain-grid">
+      <div class="domain-btn" data-domain="rehab_strength" data-query="(&quot;resistance training&quot; OR &quot;strength training&quot; OR &quot;progressive resistance&quot; OR &quot;weight training&quot; OR sarcopenia OR dynapenia OR frailty OR cachexia OR hypertrophy OR atrophy) AND (exercise OR rehabilitation OR &quot;physical therapy&quot; OR training OR elderly OR older adult* OR musculoskeletal)" onclick="selectDomain(this)">
+        <span class="domain-icon">🏋️</span>
+        <span class="domain-name">筋力トレーニング</span>
+        <span class="domain-en">Strength / Resistance</span>
+      </div>
+      <div class="domain-btn" data-domain="rehab_cardiac_msk" data-query="(&quot;cardiac rehabilitation&quot; OR &quot;cardiac rehab&quot; OR &quot;heart failure&quot; OR &quot;coronary artery disease&quot; OR &quot;myocardial infarction&quot; OR osteoarthritis OR &quot;low back pain&quot; OR &quot;musculoskeletal&quot; OR &quot;fall prevention&quot;) AND (exercise OR training OR rehabilitation OR &quot;physical therapy&quot; OR aerobic OR resistance OR walking)" onclick="selectDomain(this)">
+        <span class="domain-icon">🏃</span>
+        <span class="domain-name">心リハ・運動器</span>
+        <span class="domain-en">Cardiac &amp; MSK Rehab</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 検索オプション -->
+  <div class="search-options">
+    <div class="option-group">
+      <div class="option-label">ARTICLE TYPE</div>
+      <select id="articleType" class="option-select">
+        <option value="">すべて（タイプ指定なし・ヒットしやすい）</option>
+        <option value="guideline[pt] OR practice guideline[pt] OR systematic review[pt] OR review[pt]">Guidelines / Reviews</option>
+        <option value="clinical trial[pt] OR randomized controlled trial[pt]">RCT / Clinical Trials</option>
+        <option value="meta-analysis[pt]">Meta-analysis</option>
+      </select>
+    </div>
+    <div class="option-group">
+      <div class="option-label">PUBLICATION DATE</div>
+      <select id="pubYear" class="option-select"></select>
+    </div>
+    <div class="option-group">
+      <div class="option-label">MAX RESULTS</div>
+      <select id="maxResults" class="option-select">
+        <option value="5">5件</option>
+        <option value="10" selected>10件</option>
+        <option value="15">15件</option>
+      </select>
+    </div>
+    <div class="option-group">
+      <div class="option-label">RANKING（再スコアリング）</div>
+      <select id="rankMode" class="option-select">
+        <option value="relevance">PubMed 関連度順（従来）</option>
+        <option value="evidence" selected>エビデンス設計を優先</option>
+        <option value="citations">被引用数を優先（OpenAlex）</option>
+        <option value="balanced">バランス型（設計＋引用＋新しさ）</option>
+      </select>
+    </div>
+    <button class="search-btn" id="searchBtn" onclick="searchPubMed()">
+      SEARCH PUBMED
+    </button>
+    <div class="read-actions">
+      <span style="font-size:10px;color:var(--text-dim);font-family:var(--mono);">既読は PMID 単位でブラウザ localStorage に保存</span>
+      <button type="button" onclick="clearAllReadMarks()">既読をすべて解除</button>
+    </div>
+  </div>
+
+  <!-- ステータスバー -->
+  <div class="status-bar" id="statusBar">
+    <div class="status-dot"></div>
+    <span id="statusText">Searching PubMed...</span>
+  </div>
+
+  <!-- 結果 -->
+  <div class="results-section" id="resultsSection">
+    <div class="results-header">
+      <div style="flex:1;">
+        <div class="section-label" style="margin-bottom:0;">RESULTS</div>
+        <div class="results-rank-hint" id="rankHint"></div>
+      </div>
+      <div class="results-count"><span id="resultsCount">0</span> articles found</div>
+    </div>
+    <div id="searchEmptyPanel" class="search-empty-panel" hidden></div>
+    <div id="articlesList"></div>
+  </div>
+
+  <!-- 免責事項 -->
+  <div class="disclaimer">
+    <strong>⚠ 重要：</strong>
+    出版日の「過去N年」は<strong>このページを読み込んだ時点の日付</strong>で固定されます（タブを再読み込みすると基準日が更新されます）。既読チェックはこのブラウザの localStorage に保存され、他の端末とは同期されません。PubMed検索・Abstract表示は API キー不要です。臨床判断は必ず原著全文および最新ガイドラインを参照してください。
+  </div>
+
+</div>
+
+<script>
+// ==========================================
+// 設定
+// ==========================================
+const PUBMED_BASE = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
+const READ_LS_KEY = 'em_catchup_read_pmids';
+let currentDomainQuery = '("acute coronary syndrome" OR ACS OR "myocardial infarction" OR MI OR STEMI OR NSTEMI OR "heart failure" OR "cardiogenic shock" OR angina OR "acute coronary")';
+/** ページ読み込み時点の日時（出版日オプションの基準・再読込で更新） */
+let sessionOpenDate = null;
+
+// ==========================================
+// 出版日セレクト（開いた日を基準に過去N年）
+// ==========================================
+function formatDateSlash(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}/${m}/${day}`;
+}
+
+function buildRollingPdatRange(endDate, yearsBack) {
+  const start = new Date(endDate.getTime());
+  start.setFullYear(start.getFullYear() - yearsBack);
+  return `"${formatDateSlash(start)}"[PDAT] : "${formatDateSlash(endDate)}"[PDAT]`;
+}
+
+function initPubYearSelect() {
+  sessionOpenDate = new Date();
+  const sel = document.getElementById('pubYear');
+  if (!sel) return;
+  sel.innerHTML = '';
+
+  const y1 = buildRollingPdatRange(sessionOpenDate, 1);
+  const y2 = buildRollingPdatRange(sessionOpenDate, 2);
+  const y3 = buildRollingPdatRange(sessionOpenDate, 3);
+  const y5 = buildRollingPdatRange(sessionOpenDate, 5);
+
+  const opts = [
+    { v: y1, l: '過去1年' },
+    { v: y2, l: '過去2年' },
+    { v: y3, l: '過去3年（既定）' },
+    { v: y5, l: '過去5年' }
+  ];
+
+  opts.forEach((o, i) => {
+    const opt = document.createElement('option');
+    opt.value = o.v;
+    opt.textContent = o.l;
+    if (i === 2) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+// ==========================================
+// 既読（localStorage・PMID 単位）
+// ==========================================
+function getReadMap() {
+  try {
+    const s = localStorage.getItem(READ_LS_KEY);
+    if (!s) return {};
+    const o = JSON.parse(s);
+    return o && typeof o === 'object' ? o : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function isPmidRead(pmid) {
+  return !!getReadMap()[String(pmid)];
+}
+
+function setReadState(pmid, read) {
+  const m = getReadMap();
+  const k = String(pmid);
+  if (read) m[k] = Date.now();
+  else delete m[k];
+  try {
+    localStorage.setItem(READ_LS_KEY, JSON.stringify(m));
+  } catch (_) {
+    alert('localStorage に保存できませんでした（ストレージ満杯など）。');
+  }
+}
+
+function onArticleReadChange(input) {
+  const pmid = input.getAttribute('data-pmid');
+  setReadState(pmid, input.checked);
+  const card = input.closest('.article-card');
+  if (card) card.classList.toggle('article-read', input.checked);
+}
+
+function markArticleReadByPmid(pmid) {
+  if (!pmid) return;
+  setReadState(pmid, true);
+  const cb = document.querySelector(`input.article-read-cb[data-pmid="${CSS.escape(String(pmid))}"]`);
+  if (cb) {
+    cb.checked = true;
+    const card = cb.closest('.article-card');
+    if (card) card.classList.add('article-read');
+  }
+}
+
+function onDoiLinkClick(e) {
+  const link = e.target.closest('.doi-link');
+  if (!link) return;
+  const pmid = link.getAttribute('data-pmid');
+  if (pmid) markArticleReadByPmid(pmid);
+}
+
+function clearAllReadMarks() {
+  if (!confirm('保存した既読チェックをすべて削除しますか？')) return;
+  localStorage.removeItem(READ_LS_KEY);
+  document.querySelectorAll('.article-card').forEach(c => {
+    c.classList.remove('article-read');
+    const cb = c.querySelector('input.article-read-cb');
+    if (cb) cb.checked = false;
+  });
+}
+
+function updateApp() {
+  if (!confirm('アプリを最新版に更新しますか？\n（キャッシュを削除して再読み込みします）')) return;
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(regs => {
+      regs.forEach(r => r.unregister());
+    });
+  }
+  if ('caches' in window) {
+    caches.keys().then(names => {
+      names.forEach(n => caches.delete(n));
+    });
+  }
+  setTimeout(() => window.location.reload(true), 500);
+}
+
+window.onload = () => {
+  initPubYearSelect();
+  document.addEventListener('click', onDoiLinkClick);
+  registerServiceWorker();
+
+  if (location.protocol === 'file:') {
+    document.getElementById('fileWarning').style.display = 'block';
+  }
+};
+
+async function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  if (location.protocol === 'file:') return;
+  try {
+    await navigator.serviceWorker.register('./sw.js');
+  } catch (e) {
+    console.warn('Service Worker登録に失敗:', e);
+  }
+}
+
+// ==========================================
+// ドメイン選択
+// ==========================================
+function selectDomain(el) {
+  document.querySelectorAll('.domain-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  currentDomainQuery = el.dataset.query;
+}
+
+// ==========================================
+// ランキング・OpenAlex（被引用）
+// ==========================================
+const OPENALEX_WORKS = 'https://api.openalex.org/works';
+const RANK_HINTS = {
+  relevance: 'PubMed の関連度順。候補件数＝表示件数。',
+  evidence: '多めに取得した候補を、出版タイプ・タイトルから推定した「研究設計の強さ」で再順位付けしています。',
+  citations: '候補を OpenAlex の被引用数（取得できたもの）を主に並べ替えています。新着論文は不利になりがちです。',
+  balanced: '研究設計スコア・被引用数・出版年を加重した合成スコアで並べ替えています。'
+};
+
+const EM_JOURNAL_HINTS = [
+  'emergency medicine', 'emerg med', 'ann emerg', 'acad emerg', 'american journal of emergency',
+  'western journal of emergency', 'scandinavian journal of trauma', 'resuscitation',
+  'prehospital', 'trauma acute care', 'critical care', 'intensive care med', 'injury', 'shock'
+];
+
+const REHAB_JOURNAL_HINTS = [
+  'physical therapy', 'physiotherapy', 'archives of physical medicine', 'phys med rehabil',
+  'journal of orthopaedic and sports physical', 'jospt', 'sports medicine', 'british journal of sports',
+  'medicine & science in sports', 'scandinavian journal of medicine', 'clinical rehabilitation',
+  'neurorehabilitation', 'journal of strength and conditioning', 'strength cond res',
+  'european journal of applied physiology', 'american heart journal', 'euro j prev cardiol',
+  'journal of cardiopulmonary rehabilitation', 'disability and rehabilitation'
+];
+
+const ANESTH_JOURNAL_HINTS = [
+  'anesthesiology', 'british journal of anaesthesia', 'anaesthesia', 'canadian journal of anaesthesia',
+  'journal of clinical anesthesia', 'regional anesthesia', 'pain medicine', 'anesthesia and analgesia',
+  'bmc anesthesiology', 'acta anaesthesiologica', 'european journal of anaesthesiology',
+  'journal of cardiothoracic and vascular anesthesia', 'paediatric anaesthesia', 'aana journal',
+  'minerva anestesiologica', 'journal of neurosurgical anesthesiology'
+];
+
+function yearNum(y) {
+  const s = String(y || '').replace(/\D/g, '').slice(0, 4);
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function recencyNorm(y) {
+  const n = yearNum(y);
+  if (!n) return 0.35;
+  return Math.min(1, Math.max(0, (n - 1998) / 28));
+}
+
+function journalBoost(journal) {
+  const j = (journal || '').toLowerCase();
+  if (EM_JOURNAL_HINTS.some(h => j.includes(h))) return 10;
+  if (REHAB_JOURNAL_HINTS.some(h => j.includes(h))) return 10;
+  if (ANESTH_JOURNAL_HINTS.some(h => j.includes(h))) return 10;
+  return 0;
+}
+
+function computeEvidenceScore(pubTypes, title, journal) {
+  const ptArr = (pubTypes || []).map(t => String(t).toLowerCase());
+  const types = ptArr.join(' | ');
+  const tl = (title || '').toLowerCase();
+  let s = 0;
+  const hit = (cond, pts) => { if (cond) s += pts; };
+  const hasPt = (sub) => ptArr.some(t => t.includes(sub));
+
+  hit(hasPt('meta-analysis') || /\bmeta[- ]analysis\b/.test(tl), 44);
+  hit(hasPt('systematic review') || tl.includes('systematic review'), 40);
+  hit(hasPt('practice guideline') || hasPt('guideline') || /\bguideline\b/.test(tl), 38);
+  hit(hasPt('randomized controlled trial') || hasPt('controlled clinical trial'), 36);
+  hit(hasPt('clinical trial') || (tl.includes('randomized') && tl.includes('trial')), 28);
+  hit(hasPt('multicenter study') || tl.includes('multicenter') || tl.includes('multi-center'), 14);
+  hit(hasPt('comparative study'), 12);
+  hit(hasPt('observational study') || hasPt('cohort studies'), 14);
+  hit(ptArr.includes('review') && !hasPt('systematic'), 16);
+  hit(hasPt('case reports'), 4);
+  hit(hasPt('editorial') || hasPt('comment') || hasPt('letter'), -6);
+  hit(hasPt('news'), -8);
+
+  if (/network meta-analysis/.test(tl)) s += 8;
+
+  s += journalBoost(journal);
+
+  if (s < 0) s = 0;
+  if (hasPt('journal article') && s < 6) s = 6;
+
+  s = Math.min(100, Math.round(s));
+
+  let tier = 'low';
+  let label = 'エビデンス推定: 低';
+  if (s >= 34) { tier = 'high'; label = 'エビデンス推定: 高'; }
+  else if (s >= 18) { tier = 'mid'; label = 'エビデンス推定: 中'; }
+
+  return { score: s, tier, label };
+}
+
+function orderArticlesByPmidList(articles, ids) {
+  const map = new Map(articles.map(a => [String(a.pmid), a]));
+  return ids.map(id => map.get(String(id))).filter(Boolean);
+}
+
+function assignPubRank(articles, ids) {
+  const idx = new Map(ids.map((id, i) => [String(id), i]));
+  articles.forEach(a => {
+    a.pubRank = idx.has(String(a.pmid)) ? idx.get(String(a.pmid)) : 9999;
+  });
+}
+
+function getPoolSize(rankMode, userMax) {
+  if (rankMode === 'relevance') return userMax;
+  return Math.min(100, Math.max(36, userMax * 5));
+}
+
+async function enrichOpenAlexCitations(articles) {
+  const concurrency = 6;
+  for (let i = 0; i < articles.length; i += concurrency) {
+    const slice = articles.slice(i, i + concurrency);
+    await Promise.all(slice.map(async (a) => {
+      a.citedByCount = null;
+      a.openAlexFwci = null;
+      if (!a.pmid) return;
+      try {
+        const url = `${OPENALEX_WORKS}?filter=pmid:${encodeURIComponent(a.pmid)}&per-page=1`;
+        const r = await fetch(url);
+        if (!r.ok) return;
+        const j = await r.json();
+        const w = j.results && j.results[0];
+        if (!w) return;
+        if (typeof w.cited_by_count === 'number') a.citedByCount = w.cited_by_count;
+        if (typeof w.fwci === 'number') a.openAlexFwci = w.fwci;
+      } catch (_) { /* CORS / ネットワーク */ }
+    }));
+    await new Promise(res => setTimeout(res, 90));
+  }
+}
+
+function rankAndLimitArticles(articles, rankMode, limit) {
+  if (rankMode === 'relevance') {
+    return articles.slice(0, limit);
+  }
+  const list = articles.map(a => Object.assign({}, a));
+  if (rankMode === 'evidence') {
+    list.sort((a, b) => {
+      if (b.evidenceScore !== a.evidenceScore) return b.evidenceScore - a.evidenceScore;
+      const yb = yearNum(b.year), ya = yearNum(a.year);
+      if (yb !== ya) return yb - ya;
+      return (a.pubRank ?? 9999) - (b.pubRank ?? 9999);
+    });
+  } else if (rankMode === 'citations') {
+    list.sort((a, b) => {
+      const na = a.citedByCount == null ? -1 : a.citedByCount;
+      const nb = b.citedByCount == null ? -1 : b.citedByCount;
+      if (nb !== na) return nb - na;
+      if (b.evidenceScore !== a.evidenceScore) return b.evidenceScore - a.evidenceScore;
+      return (a.pubRank ?? 9999) - (b.pubRank ?? 9999);
+    });
+  } else if (rankMode === 'balanced') {
+    const evMax = Math.max(1, ...list.map(a => a.evidenceScore));
+    list.forEach(a => {
+      const evN = a.evidenceScore / evMax;
+      const cit = a.citedByCount;
+      const citN = cit == null ? 0 : Math.min(1, Math.log10(cit + 1) / Math.log10(401));
+      const recN = recencyNorm(a.year);
+      a.compositeScore = 0.44 * evN + 0.34 * citN + 0.22 * recN;
+    });
+    list.sort((a, b) => {
+      if (b.compositeScore !== a.compositeScore) return b.compositeScore - a.compositeScore;
+      if (b.evidenceScore !== a.evidenceScore) return b.evidenceScore - a.evidenceScore;
+      return (a.pubRank ?? 9999) - (b.pubRank ?? 9999);
+    });
+  }
+  return list.slice(0, limit);
+}
+
+function buildArticleBadgesHtml(art) {
+  const tier = art.evidenceTier || 'low';
+  const evClass = tier === 'high' ? 'badge-ev-high' : tier === 'mid' ? 'badge-ev-mid' : 'badge-ev-low';
+  const cite =
+    art.citedByCount != null
+      ? `<span class="article-badge badge-cites" title="OpenAlex cited_by_count">引用 ${art.citedByCount}（OpenAlex）</span>`
+      : `<span class="article-badge badge-cites-unknown" title="OpenAlex 未取得">引用: —</span>`;
+  const types = art.publicationTypes || [];
+  const ptShort = types.slice(0, 2).join(', ');
+  const ptBadge = ptShort
+    ? `<span class="article-badge badge-pt" title="${escHtml(types.join(', '))}">${escHtml(ptShort)}</span>`
+    : '';
+  return `<div class="article-badges"><span class="article-badge ${evClass}">${escHtml(art.evidenceLabel || '')}</span>${cite}${ptBadge}</div>`;
+}
+
+// ==========================================
+// 0件時: PubMed 件数の切り分け
+// ==========================================
+function delay(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+async function pubmedEsearchCount(term) {
+  const url = `${PUBMED_BASE}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(term)}&retmax=0&retmode=json`;
+  const r = await fetch(url);
+  if (!r.ok) return -1;
+  const j = await r.json();
+  const n = parseInt(j.esearchresult?.count ?? '0', 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function pubmedWebSearchUrl(term) {
+  return 'https://pubmed.ncbi.nlm.nih.gov/?term=' + encodeURIComponent(term);
+}
+
+function hideSearchEmptyPanel() {
+  const el = document.getElementById('searchEmptyPanel');
+  el.hidden = true;
+  el.innerHTML = '';
+}
+
+function showParseFailureHelp(query, nIds) {
+  const panel = document.getElementById('searchEmptyPanel');
+  const url = pubmedWebSearchUrl(query);
+  panel.innerHTML = `
+    <h4>ID は返ったが表示できませんでした</h4>
+    <p>PubMed から <strong>${nIds} 件</strong>の ID は取得できましたが、このページが読み取れた論文が 0 件でした。通信や一時的な XML 不整合の可能性があります。しばらくしてから再検索するか、PubMed 側で PMID を開いてください。</p>
+    <pre class="search-query-pre">${escHtml(query)}</pre>
+    <a class="pubmed-link" href="${url}" target="_blank" rel="noopener">→ PubMed で同じ条件を開く</a>`;
+  panel.hidden = false;
+  document.getElementById('resultsSection').classList.add('visible');
+  document.getElementById('resultsCount').textContent = '0';
+  document.getElementById('articlesList').innerHTML = '';
+  document.getElementById('rankHint').textContent = '';
+}
+
+async function showZeroHitsHelp({ query, er, domainQuery, articleType, pubYear, reason }) {
+  const panel = document.getElementById('searchEmptyPanel');
+  const strict = parseInt(er?.count ?? '0', 10) || 0;
+  const qTrans = er?.querytranslation || '';
+  const url = pubmedWebSearchUrl(query);
+  const hasArticleType = !!(articleType && articleType.trim());
+
+  if (reason === 'orphan_count') {
+    panel.innerHTML = `
+      <h4>件数はあるのに ID が返りませんでした</h4>
+      <p>PubMed の応答で総ヒットが <strong>${strict.toLocaleString()} 件</strong>と出ているのに、ID リストが空でした。混雑や一時障害のことがあります。数十秒待ってから再度「SEARCH」を押すか、下のリンクで PubMed 本家を開いてください。</p>
+      <pre class="search-query-pre">${escHtml(query)}</pre>
+      <a class="pubmed-link" href="${url}" target="_blank" rel="noopener">→ PubMed で同じ条件を開く</a>`;
+    panel.hidden = false;
+    document.getElementById('resultsSection').classList.add('visible');
+    document.getElementById('resultsCount').textContent = '0';
+    document.getElementById('articlesList').innerHTML = '';
+    document.getElementById('rankHint').textContent = '';
+    return;
+  }
+
+  const qNoType = `(${domainQuery}) AND ${pubYear} AND English[lang]`;
+  const qLangOnly = `(${domainQuery}) AND English[lang]`;
+
+  let cNoType = strict;
+  let cLang = strict;
+
+  if (strict === 0) {
+    if (hasArticleType) {
+      await delay(340);
+      cNoType = await pubmedEsearchCount(qNoType);
+    }
+    await delay(340);
+    cLang = await pubmedEsearchCount(qLangOnly);
+  }
+
+  const insights = [];
+  insights.push('どのドメインでも、<strong>ドメイン × 出版年 × 英語 × 記事タイプ</strong>を同時に満たす文献がゼロになることはよくあります。ゼロ件＝「その臨床領域に論文が存在しない」とは限りません。');
+
+  if (strict === 0 && cLang === 0) {
+    insights.push('「ドメイン＋英語」だけでもほぼ 0 件です。<strong>埋め込みキーワードが PubMed の索引と合っていない</strong>可能性が高いです。同じ語句を PubMed サイトで試すと原因が分かることがあります。');
+  } else if (strict === 0 && hasArticleType && cNoType > 0) {
+    insights.push('<strong>記事タイプ</strong>（ガイドライン／メタアナリシス等）を「すべて（タイプ指定なし）」にするとヒットが出る見込みがあります。');
+  } else if (strict === 0 && !hasArticleType && cLang > 0) {
+    insights.push('記事タイプは外しているので、<strong>出版年の範囲</strong>が主な制限になっています。年を広げるとヒットが増えることが多いです。');
+  } else if (strict === 0 && hasArticleType && cNoType === 0 && cLang > 0) {
+    insights.push('記事タイプを外しても 0 件なので、<strong>出版年</strong>を広げる必要がある可能性が高いです。');
+  } else if (strict === 0 && cLang > 0) {
+    insights.push('下の表で件数がどこから増えるかを見て、効いているフィルタを特定してください。');
+  }
+
+  let rowsHtml = `<tr><th>現在の条件（画面どおり）</th><td class="diag-count">${strict.toLocaleString()} 件</td></tr>`;
+  if (hasArticleType) {
+    rowsHtml += `<tr><th>記事タイプを外した場合<br><span style="font-weight:400;color:var(--text-dim);font-size:10px;">ドメイン＋年＋英語</span></th><td class="diag-count">${cNoType < 0 ? '取得エラー' : cNoType.toLocaleString() + ' 件'}</td></tr>`;
+  } else {
+    rowsHtml += `<tr><th>記事タイプを外した場合</th><td>（指定なし → 上と同じ条件）</td></tr>`;
+  }
+  rowsHtml += `<tr><th>出版年も外した場合<br><span style="font-weight:400;color:var(--text-dim);font-size:10px;">ドメイン＋英語のみ</span></th><td class="diag-count">${cLang < 0 ? '取得エラー' : cLang.toLocaleString()} 件</td></tr>`;
+
+  panel.innerHTML = `
+    <h4>0 件のときの切り分け</h4>
+    <p>PubMed が返した<strong>総ヒット数</strong>と、条件を一段ずつ外したときの件数です。差が大きい項目ほど、ヒットを止めている可能性が高いです。</p>
+    <table class="diag-table">${rowsHtml}</table>
+    <div class="diag-insight"><strong>読み方</strong><ul>${insights.map(i => `<li>${i}</li>`).join('')}</ul></div>
+    <p><strong>このツールが送った検索式</strong></p>
+    <pre class="search-query-pre">${escHtml(query)}</pre>
+    ${qTrans ? `<p style="font-size:11px;color:var(--text-dim);margin-top:10px;">PubMed が内部で展開した式（参考）</p><pre class="search-query-pre" style="max-height:100px;">${escHtml(qTrans)}</pre>` : ''}
+    <a class="pubmed-link" href="${url}" target="_blank" rel="noopener">→ PubMed で同じ条件を開く</a>`;
+  panel.hidden = false;
+  document.getElementById('resultsSection').classList.add('visible');
+  document.getElementById('resultsCount').textContent = '0';
+  document.getElementById('articlesList').innerHTML = '';
+  document.getElementById('rankHint').textContent = '';
+}
+
+// ==========================================
+// PubMed検索
+// ==========================================
+async function searchPubMed() {
+  const articleType = document.getElementById('articleType').value.trim();
+  const pubYear = document.getElementById('pubYear').value;
+  const userMax = parseInt(document.getElementById('maxResults').value, 10) || 10;
+  const rankMode = document.getElementById('rankMode').value;
+  const rankSel = document.getElementById('rankMode');
+  const rankLabel = rankSel.options[rankSel.selectedIndex].textContent;
+
+  const typeClause = articleType ? `(${articleType}) AND ` : '';
+  const query = `(${currentDomainQuery}) AND ${typeClause}${pubYear} AND English[lang]`;
+  const poolSize = getPoolSize(rankMode, userMax);
+
+  document.getElementById('rankHint').textContent = '';
+  hideSearchEmptyPanel();
+
+  setStatus('visible', 'PubMed検索中...');
+  document.getElementById('searchBtn').disabled = true;
+  document.getElementById('resultsSection').classList.remove('visible');
+
+  try {
+    const searchUrl = `${PUBMED_BASE}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=${poolSize}&retmode=json&sort=relevance`;
+    const searchRes = await fetch(searchUrl);
+    if (!searchRes.ok) {
+      setStatus('error', 'PubMed API エラー: HTTP ' + searchRes.status);
+      document.getElementById('searchBtn').disabled = false;
+      return;
+    }
+    const searchData = await searchRes.json();
+    const er = searchData.esearchresult;
+    if (!er) {
+      setStatus('error', 'PubMed の応答形式が想定外です（esearchresult なし）');
+      document.getElementById('searchBtn').disabled = false;
+      return;
+    }
+    const ids = er.idlist || [];
+    const strictCount = parseInt(er.count ?? '0', 10) || 0;
+
+    if (ids.length === 0) {
+      const reason = strictCount > 0 ? 'orphan_count' : 'no_ids';
+      setStatus(
+        'error',
+        strictCount > 0
+          ? 'ヒット件数はあるのに ID が返りませんでした（下の説明を参照）'
+          : 'この条件では PubMed 上 0 件です（下の切り分けを参照）'
+      );
+      await showZeroHitsHelp({
+        query,
+        er,
+        domainQuery: currentDomainQuery,
+        articleType,
+        pubYear,
+        reason
+      });
+      document.getElementById('searchBtn').disabled = false;
+      return;
+    }
+
+    hideSearchEmptyPanel();
+
+    setStatus('visible', `${ids.length}件のメタデータ・Abstract取得中...`);
+
+    const fetchUrl = `${PUBMED_BASE}/efetch.fcgi?db=pubmed&id=${ids.join(',')}&retmode=xml&rettype=abstract`;
+    const fetchRes = await fetch(fetchUrl);
+    const xmlText = await fetchRes.text();
+    let articles = parseXML(xmlText);
+    articles = orderArticlesByPmidList(articles, ids);
+    assignPubRank(articles, ids);
+
+    if (articles.length === 0) {
+      setStatus('error', 'XML から論文を読み取れませんでした');
+      showParseFailureHelp(query, ids.length);
+      document.getElementById('searchBtn').disabled = false;
+      return;
+    }
+
+    articles.forEach(a => {
+      const ev = computeEvidenceScore(a.publicationTypes, a.title, a.journal);
+      a.evidenceScore = ev.score;
+      a.evidenceTier = ev.tier;
+      a.evidenceLabel = ev.label;
+    });
+
+    document.getElementById('rankHint').textContent =
+      RANK_HINTS[rankMode] + (rankMode === 'relevance' ? '' : ` 候補 ${ids.length} 件から上位 ${userMax} 件を表示。`);
+
+    if (articles.length > 0) {
+      setStatus('visible', 'OpenAlex で引用数を取得中...（数秒かかることがあります）');
+    }
+    await enrichOpenAlexCitations(articles);
+
+    articles = rankAndLimitArticles(articles, rankMode, userMax);
+
+    document.getElementById('resultsCount').textContent = articles.length;
+    renderArticles(articles);
+
+    setStatus('done', `${articles.length}件を表示 — ${rankLabel}`);
+    document.getElementById('resultsSection').classList.add('visible');
+  } catch (e) {
+    setStatus('error', 'エラーが発生しました: ' + e.message);
+    console.error(e);
+  }
+
+  document.getElementById('searchBtn').disabled = false;
+}
+
+// ==========================================
+// XML パース
+// ==========================================
+function parseXML(xmlText) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlText, 'text/xml');
+  const articles = [];
+
+  doc.querySelectorAll('PubmedArticle').forEach(art => {
+    const getText = (selector) => {
+      const el = art.querySelector(selector);
+      return el ? el.textContent.trim() : '';
+    };
+
+    // タイトル
+    const title = getText('ArticleTitle');
+
+    // Abstract（構造化Abstractを結合）
+    let abstract = '';
+    const abstractTexts = art.querySelectorAll('AbstractText');
+    abstractTexts.forEach(at => {
+      const label = at.getAttribute('Label');
+      const text = at.textContent.trim();
+      if (label) abstract += `[${label}] ${text}\n\n`;
+      else abstract += text + '\n\n';
+    });
+    abstract = abstract.trim();
+
+    // メタ情報
+    const pmid = getText('PMID');
+    const journal = getText('Title') || getText('ISOAbbreviation');
+    const year = getText('PubDate Year') || getText('MedlineDate')?.substring(0,4) || '';
+    const volume = getText('Volume');
+    const issue = getText('Issue');
+    const pages = getText('MedlinePgn');
+
+    // 著者
+    const authors = [];
+    art.querySelectorAll('Author').forEach((a, i) => {
+      if (i < 3) {
+        const last = a.querySelector('LastName')?.textContent || '';
+        const init = a.querySelector('Initials')?.textContent || '';
+        if (last) authors.push(`${last} ${init}`);
+      }
+    });
+    if (art.querySelectorAll('Author').length > 3) authors.push('et al.');
+
+    // DOI
+    let doi = '';
+    art.querySelectorAll('ArticleId').forEach(id => {
+      if (id.getAttribute('IdType') === 'doi') doi = id.textContent.trim();
+    });
+
+    const publicationTypes = [];
+    art.querySelectorAll('PublicationType').forEach(pt => {
+      const t = pt.textContent.trim();
+      if (t) publicationTypes.push(t);
+    });
+
+    if (title) {
+      articles.push({
+        pmid,
+        title,
+        abstract: abstract || '',
+        journal,
+        year,
+        volume,
+        issue,
+        pages,
+        authors,
+        doi,
+        publicationTypes
+      });
+    }
+  });
+
+  return articles;
+}
+
+// ==========================================
+// 記事レンダリング
+// ==========================================
+function renderArticles(articles) {
+  const container = document.getElementById('articlesList');
+  container.innerHTML = '';
+
+  articles.forEach((art, idx) => {
+    const card = document.createElement('div');
+    card.className = 'article-card';
+    card.id = `card-${idx}`;
+
+    const authorStr = art.authors.join(', ');
+    const citationStr = [art.journal, art.year, art.volume ? `${art.volume}(${art.issue}):${art.pages}` : ''].filter(Boolean).join(' ');
+    const pmidEsc = escHtml(String(art.pmid));
+    const doiHtml = art.doi
+      ? `<a href="https://doi.org/${art.doi}" target="_blank" class="doi-link" data-pmid="${pmidEsc}">🔗 DOI: ${art.doi}</a>`
+      : `<a href="https://pubmed.ncbi.nlm.nih.gov/${art.pmid}/" target="_blank" class="doi-link" data-pmid="${pmidEsc}">🔗 PubMed: ${art.pmid}</a>`;
+
+    const hasAbstract = !!(art.abstract && art.abstract.trim());
+    const abstractHtml = hasAbstract
+      ? escHtml(art.abstract)
+      : '（PubMed に Abstract の登録がありません。下のリンクから原著・抄録ページを開いてください。）';
+    if (!art.evidenceLabel) {
+      const ev = computeEvidenceScore(art.publicationTypes, art.title, art.journal);
+      art.evidenceScore = ev.score;
+      art.evidenceTier = ev.tier;
+      art.evidenceLabel = ev.label;
+    }
+
+    const read = isPmidRead(art.pmid);
+    if (read) card.classList.add('article-read');
+
+    card.innerHTML = `
+      <div class="article-header" onclick="toggleCard(${idx})">
+        <label class="read-toggle" onclick="event.stopPropagation();">
+          <input type="checkbox" class="article-read-cb" data-pmid="${pmidEsc}" ${read ? 'checked' : ''} onchange="onArticleReadChange(this)" />
+          <span>既読</span>
+        </label>
+        <div class="article-pmid">PMID:${escHtml(art.pmid)}</div>
+        <div class="article-info">
+          <div class="article-title">${escHtml(art.title)}</div>
+          <div class="article-meta">
+            <span class="article-journal">${escHtml(art.journal)}</span>
+            <span>${escHtml(year2str(art.year))}</span>
+            <span>${escHtml(authorStr)}</span>
+          </div>
+          ${buildArticleBadgesHtml(art)}
+        </div>
+        <div class="article-toggle">▾</div>
+      </div>
+      <div class="article-body">
+        <div class="abstract-label">ABSTRACT (原文)</div>
+        <div class="abstract-box" ${hasAbstract ? '' : 'style="color:var(--text-dim);font-style:italic;"'}>${abstractHtml}</div>
+        ${doiHtml}
+      </div>
+    `;
+
+    container.appendChild(card);
+    // article data をカードに紐づけ
+    card.dataset.articleData = JSON.stringify(art);
+  });
+}
+
+function toggleCard(idx) {
+  const card = document.getElementById(`card-${idx}`);
+  card.classList.toggle('expanded');
+}
+
+function year2str(y) {
+  return y ? y + '年' : '';
+}
+
+function escHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ==========================================
+// ステータスバー
+// ==========================================
+function setStatus(type, msg) {
+  const bar = document.getElementById('statusBar');
+  const text = document.getElementById('statusText');
+  bar.className = 'status-bar visible ' + (type === 'done' ? 'done' : type === 'error' ? 'error' : '');
+  text.textContent = msg;
+}
+</script>
+</body>
+</html>
