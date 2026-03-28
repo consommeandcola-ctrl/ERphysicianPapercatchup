@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
+<!-- 2026-03-28 | v2.4 | ARTICLE TYPE でガイドラインとシステマティックレビューを分離 -->
+<!-- 2026-03-28 | v2.3 | ガイドライン検索・スコアを厳密化（review[pt]除外、PTは guideline / practice guideline のみ一致） -->
+<!-- 2026-03-28 | v2.2 | タイトル・抄録・著者・ジャーナル等を MedlineCitation>Article にスコープ（参考文献ノードの混入防止） -->
+<!-- 2026-03-28 | v2.1 | DOI を PubmedData の ArticleIdList のみから取得（引用文献の DOI 混入を防止） -->
 <!-- 2026-03-24 | v2.0 | DOI既読自動化・更新ボタン・レスポンシブ調整 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -10,7 +14,7 @@
 <meta name="apple-mobile-web-app-title" content="EM CatchUp">
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./apple-icon.png">
-<title>EM CatchUp v2.0</title>
+<title>EM CatchUp v2.4</title>
 <style>
 :root {
   --bg: #f5f3ff;
@@ -728,7 +732,7 @@ body::before {
       <div class="header-title">EM CatchUp</div>
       <div class="header-sub">EVIDENCE-BASED // ORIGINAL SOURCE ONLY // ZERO HALLUCINATION</div>
     </div>
-    <div class="badge">v2.0</div>
+    <div class="badge">v2.4</div>
     <button class="btn-update" type="button" onclick="updateApp()">🔄 更新</button>
   </div>
 
@@ -739,7 +743,7 @@ body::before {
     <strong>解決策①（推奨）：Pythonローカルサーバーで起動</strong><br>
     このHTMLファイルがあるフォルダで以下を実行：<br>
     <code>python -m http.server 8080</code><br>
-    その後ブラウザで <code>http://localhost:8080/EM_CatchUp.html</code> を開く<br><br>
+    その後ブラウザで <code>http://localhost:8080/index.html</code> を開く<br><br>
     <strong>解決策②：VSCode / Cursor の Live Server拡張を使う</strong><br>
     ファイルを右クリック → "Open with Live Server"<br><br>
     <strong>解決策③：Chromeフラグ（簡易）</strong><br>
@@ -866,7 +870,8 @@ body::before {
       <div class="option-label">ARTICLE TYPE</div>
       <select id="articleType" class="option-select">
         <option value="">すべて（タイプ指定なし・ヒットしやすい）</option>
-        <option value="guideline[pt] OR practice guideline[pt] OR systematic review[pt] OR review[pt]">Guidelines / Reviews</option>
+        <option value="guideline[pt] OR practice guideline[pt]" title="Guideline / Practice Guideline の出版タイプのみ。">Guidelines</option>
+        <option value="systematic review[pt]" title="Systematic Review の出版タイプのみ。">Systematic review</option>
         <option value="clinical trial[pt] OR randomized controlled trial[pt]">RCT / Clinical Trials</option>
         <option value="meta-analysis[pt]">Meta-analysis</option>
       </select>
@@ -1144,9 +1149,20 @@ function journalBoost(journal) {
   return 0;
 }
 
+function isGuidelinePublicationType(ptArr) {
+  return (ptArr || []).some(t => t === 'guideline' || t === 'practice guideline');
+}
+
+/** タイトル補助（PT 欠落時のみ）。GDMT 等「guideline-directed」系はガイドライン文書とみなさない */
+function titleSuggestsStandardsGuideline(tl) {
+  const t = (tl || '').toLowerCase();
+  if (!/\bguidelines?\b/.test(t)) return false;
+  if (/guideline[-‐‑]?\s*(directed|recommended|based|adherence)/i.test(t)) return false;
+  return true;
+}
+
 function computeEvidenceScore(pubTypes, title, journal) {
-  const ptArr = (pubTypes || []).map(t => String(t).toLowerCase());
-  const types = ptArr.join(' | ');
+  const ptArr = (pubTypes || []).map(t => String(t).toLowerCase().trim());
   const tl = (title || '').toLowerCase();
   let s = 0;
   const hit = (cond, pts) => { if (cond) s += pts; };
@@ -1154,7 +1170,7 @@ function computeEvidenceScore(pubTypes, title, journal) {
 
   hit(hasPt('meta-analysis') || /\bmeta[- ]analysis\b/.test(tl), 44);
   hit(hasPt('systematic review') || tl.includes('systematic review'), 40);
-  hit(hasPt('practice guideline') || hasPt('guideline') || /\bguideline\b/.test(tl), 38);
+  hit(isGuidelinePublicationType(ptArr) || titleSuggestsStandardsGuideline(tl), 38);
   hit(hasPt('randomized controlled trial') || hasPt('controlled clinical trial'), 36);
   hit(hasPt('clinical trial') || (tl.includes('randomized') && tl.includes('trial')), 28);
   hit(hasPt('multicenter study') || tl.includes('multicenter') || tl.includes('multi-center'), 14);
@@ -1358,7 +1374,7 @@ async function showZeroHitsHelp({ query, er, domainQuery, articleType, pubYear, 
   if (strict === 0 && cLang === 0) {
     insights.push('「ドメイン＋英語」だけでもほぼ 0 件です。<strong>埋め込みキーワードが PubMed の索引と合っていない</strong>可能性が高いです。同じ語句を PubMed サイトで試すと原因が分かることがあります。');
   } else if (strict === 0 && hasArticleType && cNoType > 0) {
-    insights.push('<strong>記事タイプ</strong>（ガイドライン／メタアナリシス等）を「すべて（タイプ指定なし）」にするとヒットが出る見込みがあります。');
+    insights.push('<strong>記事タイプ</strong>（ガイドライン／システマティックレビュー／メタアナリシス等）を「すべて（タイプ指定なし）」にするとヒットが出る見込みがあります。');
   } else if (strict === 0 && !hasArticleType && cLang > 0) {
     insights.push('記事タイプは外しているので、<strong>出版年の範囲</strong>が主な制限になっています。年を広げるとヒットが増えることが多いです。');
   } else if (strict === 0 && hasArticleType && cNoType === 0 && cLang > 0) {
@@ -1508,18 +1524,16 @@ function parseXML(xmlText) {
   const articles = [];
 
   doc.querySelectorAll('PubmedArticle').forEach(art => {
-    const getText = (selector) => {
-      const el = art.querySelector(selector);
-      return el ? el.textContent.trim() : '';
-    };
+    const mc = art.querySelector('MedlineCitation');
+    const articleNode = mc?.querySelector(':scope > Article');
+    if (!mc || !articleNode) return;
 
-    // タイトル
-    const title = getText('ArticleTitle');
+    const title =
+      (articleNode.querySelector(':scope > ArticleTitle')?.textContent || '').trim() ||
+      (articleNode.querySelector(':scope > VernacularTitle')?.textContent || '').trim();
 
-    // Abstract（構造化Abstractを結合）
     let abstract = '';
-    const abstractTexts = art.querySelectorAll('AbstractText');
-    abstractTexts.forEach(at => {
+    articleNode.querySelectorAll('Abstract AbstractText').forEach(at => {
       const label = at.getAttribute('Label');
       const text = at.textContent.trim();
       if (label) abstract += `[${label}] ${text}\n\n`;
@@ -1527,36 +1541,59 @@ function parseXML(xmlText) {
     });
     abstract = abstract.trim();
 
-    // メタ情報
-    const pmid = getText('PMID');
-    const journal = getText('Title') || getText('ISOAbbreviation');
-    const year = getText('PubDate Year') || getText('MedlineDate')?.substring(0,4) || '';
-    const volume = getText('Volume');
-    const issue = getText('Issue');
-    const pages = getText('MedlinePgn');
+    const pmid = (mc.querySelector(':scope > PMID')?.textContent || '').trim();
 
-    // 著者
+    const journalEl = articleNode.querySelector(':scope > Journal');
+    const journal =
+      (journalEl?.querySelector('Title')?.textContent || '').trim() ||
+      (journalEl?.querySelector('ISOAbbreviation')?.textContent || '').trim();
+
+    const ji = journalEl?.querySelector('JournalIssue');
+    const pubDate = ji?.querySelector('PubDate');
+    let year = (pubDate?.querySelector('Year')?.textContent || '').trim();
+    if (!year && pubDate?.querySelector('MedlineDate')) {
+      year = (pubDate.querySelector('MedlineDate').textContent || '').trim().substring(0, 4);
+    }
+    if (!year) {
+      year = (articleNode.querySelector('ArticleDate Year')?.textContent || '').trim();
+    }
+
+    const volume = (ji?.querySelector('Volume')?.textContent || '').trim();
+    const issue = (ji?.querySelector('Issue')?.textContent || '').trim();
+    const pages = (articleNode.querySelector('Pagination MedlinePgn')?.textContent || '').trim();
+
     const authors = [];
-    art.querySelectorAll('Author').forEach((a, i) => {
+    const authorNodes = articleNode.querySelectorAll('AuthorList Author');
+    authorNodes.forEach((a, i) => {
       if (i < 3) {
         const last = a.querySelector('LastName')?.textContent || '';
         const init = a.querySelector('Initials')?.textContent || '';
         if (last) authors.push(`${last} ${init}`);
       }
     });
-    if (art.querySelectorAll('Author').length > 3) authors.push('et al.');
+    if (authorNodes.length > 3) authors.push('et al.');
 
-    // DOI
     let doi = '';
-    art.querySelectorAll('ArticleId').forEach(id => {
-      if (id.getAttribute('IdType') === 'doi') doi = id.textContent.trim();
-    });
+    const primaryIdList = art.querySelector('PubmedData > ArticleIdList');
+    if (primaryIdList) {
+      primaryIdList.querySelectorAll(':scope > ArticleId').forEach(id => {
+        if (id.getAttribute('IdType') === 'doi') doi = id.textContent.trim();
+      });
+    }
 
     const publicationTypes = [];
-    art.querySelectorAll('PublicationType').forEach(pt => {
-      const t = pt.textContent.trim();
-      if (t) publicationTypes.push(t);
-    });
+    const ptScopedNodes = articleNode.querySelectorAll('PublicationTypeList PublicationType');
+    if (ptScopedNodes.length) {
+      ptScopedNodes.forEach(pt => {
+        const t = pt.textContent.trim();
+        if (t) publicationTypes.push(t);
+      });
+    } else {
+      articleNode.querySelectorAll(':scope > PublicationType').forEach(pt => {
+        const t = pt.textContent.trim();
+        if (t) publicationTypes.push(t);
+      });
+    }
 
     if (title) {
       articles.push({
